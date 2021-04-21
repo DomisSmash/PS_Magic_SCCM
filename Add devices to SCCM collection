@@ -1,6 +1,8 @@
-#===========================================================================
+######################################################
+# Add devices to specific collection in SCCM
+######################################################
 # User Configured variables
-#===========================================================================
+######################################################
 $CollectionName = "Provisioning mode fix"
 $List = @(
 "DEVICENAME",
@@ -8,9 +10,9 @@ $List = @(
 )
 #$SiteCode = "PR1" # SCCM Site code 
 #$ProviderMachineName = "cmncm100.adroot.net" # SCCM Primary site server
-#===========================================================================
+######################################################
 # Script variables
-#===========================================================================
+######################################################
 # Site configuration
 $initParams = @{}
 # Import the ConfigurationManager.psd1 module 
@@ -23,9 +25,9 @@ if((Get-PSDrive -Name $SiteCode -PSProvider CMSite -ErrorAction SilentlyContinue
 Set-Location "$($SiteCode):\" @initParams
 $i = 0
 $UpdateCollectionMembership = $false
-#===========================================================================
+######################################################
 # Main script
-#===========================================================================
+######################################################
 "";"Starting script!"
 # Check if collection exists
 if (get-cmcollection -name $CollectionName -ea SilentlyContinue){
@@ -60,6 +62,6 @@ if (get-cmcollection -name $CollectionName -ea SilentlyContinue){
 }else{
     write-host "$CollectionName not found!"
 }
-#===========================================================================
-# End of Main script
-#===========================================================================
+######################################################
+# Last updated 2019.08.13
+######################################################
