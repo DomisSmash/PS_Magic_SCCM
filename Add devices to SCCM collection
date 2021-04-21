@@ -1,0 +1,65 @@
+#===========================================================================
+# User Configured variables
+#===========================================================================
+$CollectionName = "Provisioning mode fix"
+$List = @(
+"DEVICENAME",
+"DEVICENAME2"
+)
+#$SiteCode = "PR1" # SCCM Site code 
+#$ProviderMachineName = "cmncm100.adroot.net" # SCCM Primary site server
+#===========================================================================
+# Script variables
+#===========================================================================
+# Site configuration
+$initParams = @{}
+# Import the ConfigurationManager.psd1 module 
+if((Get-Module ConfigurationManager) -eq $null) {
+    Import-Module "$($ENV:SMS_ADMIN_UI_PATH)\..\ConfigurationManager.psd1" @initParams}
+# Connect to the site's drive if it is not already present
+if((Get-PSDrive -Name $SiteCode -PSProvider CMSite -ErrorAction SilentlyContinue) -eq $null) {
+    New-PSDrive -Name $SiteCode -PSProvider CMSite -Root $ProviderMachineName @initParams}
+# Set the current location to be the site code.
+Set-Location "$($SiteCode):\" @initParams
+$i = 0
+$UpdateCollectionMembership = $false
+#===========================================================================
+# Main script
+#===========================================================================
+"";"Starting script!"
+# Check if collection exists
+if (get-cmcollection -name $CollectionName -ea SilentlyContinue){
+    # Get collection members
+    $CollectionMembers = (Get-CMCollectionMember -CollectionName $CollectionName).name
+    # Start timer for Progress Bar
+    $sw = [system.diagnostics.stopwatch]::startNew()
+    foreach ($item in $List){
+        # Progress Bar
+        $i++;$ItemCount = $List.count
+        $SecondsRemaining = ($sw.elapsed.seconds / ($i / $ItemCount)) - $sw.elapsed.seconds
+        Write-Progress -Activity "Processing Record $i of $ItemCount" -PercentComplete (($i/$ItemCount) * 100) -CurrentOperation "$("{0:N2}" -f ((($i/$ItemCount) * 100),2))% Complete" -SecondsRemaining $SecondsRemaining
+        # Skip already existing members and add new devices
+        if (!($CollectionMembers -match $item)){
+  
+            try{
+                Add-CMDeviceCollectionDirectMembershipRule -CollectionName $CollectionName -Resource $(get-cmdevice -name $item) -ea stop
+                $UpdateCollectionMembership = $true
+            }catch{
+                # Likely error about nonexistant device.
+                Write-host "[$i/$Itemcount] $item not found in SCCM!"
+            }
+        }
+    }
+    
+    # Check if Collection needs updating and then update
+    if ($UpdateCollectionMembership){
+        $null = Invoke-WmiMethod -Path "ROOT\SMS\Site_$($SiteCode):SMS_Collection.CollectionId='$((get-cmcollection -name $CollectionName).CollectionId)'" -Name RequestRefresh -ComputerName $ProviderMachineName
+        write-host "Membership update started!"
+    }
+    write-host "Script executed successfully!"
+}else{
+    write-host "$CollectionName not found!"
+}
+#===========================================================================
+# End of Main script
+#===========================================================================
